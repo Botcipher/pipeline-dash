@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lead Pipeline Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f8f9fa;
+    color: #1a1a2e;
+    font-size: 14px;
+  }
+
+  /* ── TOP BAR ── */
+  .topbar {
+    background: #fff;
+    border-bottom: 2px solid #e9ecef;
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 12px; }
+  .topbar-title { font-size: 18px; font-weight: 700; color: #1a1a2e; letter-spacing: -0.3px; }
+  .topbar-subtitle { font-size: 12px; color: #6c757d; }
+  .status-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: #28a745; display: inline-block;
+    animation: pulse 2s infinite;
+  }
+  .status-dot.offline { background: #dc3545; animation: none; }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; } 50% { opacity: 0.4; }
+  }
+  .last-updated { font-size: 11px; color: #adb5bd; }
+
+  /* ── LAYOUT ── */
+  .main { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+
+  /* ── PROGRESS BAR ── */
+  .progress-section {
+    background: #fff;
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+    border: 1px solid #e9ecef;
+  }
+  .progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 12px;
+  }
+  .progress-label { font-weight: 600; font-size: 15px; }
+  .progress-numbers { font-size: 13px; color: #6c757d; }
+  .progress-bar-track {
+    height: 10px; background: #e9ecef; border-radius: 99px; overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%; background: linear-gradient(90deg, #4361ee, #7209b7);
+    border-radius: 99px; transition: width 1s ease;
+  }
+  .progress-meta {
+    display: flex; gap: 24px; margin-top: 10px;
+  }
+  .progress-meta span { font-size: 12px; color: #6c757d; }
+  .progress-meta strong { color: #1a1a2e; }
+
+  /* ── STAT CARDS ── */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .card {
+    background: #fff;
+    border-radius: 10px;
+    padding: 16px 18px;
+    border: 1px solid #e9ecef;
+  }
+  .card-label { font-size: 11px; color: #6c757d; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .card-value { font-size: 26px; font-weight: 700; color: #1a1a2e; line-height: 1; }
+  .card-sub { font-size: 11px; color: #adb5bd; margin-top: 4px; }
+  .card.green .card-value { color: #28a745; }
+  .card.blue .card-value { color: #4361ee; }
+  .card.purple .card-value { color: #7209b7; }
+  .card.orange .card-value { color: #fd7e14; }
+  .card.red .card-value { color: #dc3545; }
+
+  /* ── TWO COLUMN ── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* ── PANELS ── */
+  .panel {
+    background: #fff;
+    border-radius: 10px;
+    border: 1px solid #e9ecef;
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid #e9ecef;
+    font-weight: 600;
+    font-size: 13px;
+    color: #495057;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .panel-body { padding: 0; }
+
+  /* ── NICHE BARS ── */
+  .niche-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 18px;
+    border-bottom: 1px solid #f1f3f5;
+  }
+  .niche-row:last-child { border-bottom: none; }
+  .niche-name { width: 160px; font-size: 12px; color: #495057; text-transform: capitalize; }
+  .niche-bar-track { flex: 1; height: 8px; background: #e9ecef; border-radius: 99px; overflow: hidden; }
+  .niche-bar-fill { height: 100%; border-radius: 99px; transition: width 1s ease; }
+  .niche-count { width: 40px; text-align: right; font-size: 12px; font-weight: 600; color: #1a1a2e; }
+  .niche-pct { width: 38px; text-align: right; font-size: 11px; color: #adb5bd; }
+
+  /* ── QUALITY BARS ── */
+  .quality-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 18px;
+    border-bottom: 1px solid #f1f3f5;
+  }
+  .quality-row:last-child { border-bottom: none; }
+  .quality-label { width: 70px; font-size: 12px; font-weight: 600; }
+  .quality-label.high { color: #28a745; }
+  .quality-label.medium { color: #fd7e14; }
+  .quality-label.low { color: #dc3545; }
+  .quality-bar-track { flex: 1; height: 8px; background: #e9ecef; border-radius: 99px; overflow: hidden; }
+  .quality-bar-fill { height: 100%; border-radius: 99px; }
+  .quality-bar-fill.high { background: #28a745; }
+  .quality-bar-fill.medium { background: #fd7e14; }
+  .quality-bar-fill.low { background: #dc3545; }
+  .quality-count { width: 50px; text-align: right; font-size: 12px; font-weight: 600; }
+  .quality-pct { width: 40px; text-align: right; font-size: 11px; color: #adb5bd; }
+
+  /* ── SERVICE STATUS ── */
+  .service-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 18px;
+    border-bottom: 1px solid #f1f3f5;
+  }
+  .service-row:last-child { border-bottom: none; }
+  .service-name { font-size: 12px; color: #495057; display: flex; align-items: center; gap: 8px; }
+  .service-badge {
+    font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 99px;
+    text-transform: uppercase; letter-spacing: 0.3px;
+  }
+  .service-badge.up { background: #d4edda; color: #155724; }
+  .service-badge.down { background: #f8d7da; color: #721c24; }
+  .service-badge.checking { background: #fff3cd; color: #856404; }
+
+  /* ── PIPELINE STATUS BREAKDOWN ── */
+  .status-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 18px;
+    border-bottom: 1px solid #f1f3f5;
+    font-size: 12px;
+  }
+  .status-row:last-child { border-bottom: none; }
+  .status-pill {
+    padding: 2px 8px; border-radius: 99px; font-size: 10px; font-weight: 600;
+    text-transform: uppercase; white-space: nowrap;
+  }
+  .pill-done { background: #d4edda; color: #155724; }
+  .pill-pending { background: #e9ecef; color: #495057; }
+  .pill-failed { background: #f8d7da; color: #721c24; }
+  .pill-skipped { background: #fff3cd; color: #856404; }
+  .status-count { margin-left: auto; font-weight: 600; }
+  .status-pct { color: #adb5bd; width: 40px; text-align: right; }
+
+  /* ── LIVE FEED ── */
+  .feed-container {
+    max-height: 420px;
+    overflow-y: auto;
+  }
+  .feed-row {
+    display: grid;
+    grid-template-columns: 1fr 90px 90px 80px 70px 50px;
+    gap: 8px;
+    align-items: center;
+    padding: 9px 18px;
+    border-bottom: 1px solid #f8f9fa;
+    transition: background 0.2s;
+  }
+  .feed-row:hover { background: #f8f9fa; }
+  .feed-row:first-child { background: #f0f7ff; }
+  .feed-name { font-size: 12px; font-weight: 500; color: #1a1a2e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .feed-niche { font-size: 11px; color: #6c757d; text-transform: capitalize; }
+  .feed-owner { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .feed-owner.found { color: #28a745; }
+  .feed-owner.none { color: #adb5bd; }
+  .feed-email { font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #495057; }
+  .feed-quality { font-size: 11px; font-weight: 600; text-align: center; }
+  .feed-quality.high { color: #28a745; }
+  .feed-quality.medium { color: #fd7e14; }
+  .feed-quality.low { color: #dc3545; }
+  .feed-score { font-size: 11px; color: #adb5bd; text-align: right; }
+  .feed-header {
+    display: grid;
+    grid-template-columns: 1fr 90px 90px 80px 70px 50px;
+    gap: 8px;
+    padding: 8px 18px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #adb5bd;
+    font-weight: 600;
+  }
+
+  /* ── ERROR LOG ── */
+  .error-row {
+    padding: 10px 18px;
+    border-bottom: 1px solid #f1f3f5;
+    font-size: 12px;
+  }
+  .error-row:last-child { border-bottom: none; }
+  .error-business { font-weight: 500; color: #dc3545; }
+  .error-msg { color: #6c757d; margin-top: 2px; font-size: 11px; }
+  .error-time { color: #adb5bd; font-size: 10px; margin-top: 2px; }
+  .no-errors { padding: 20px 18px; text-align: center; color: #adb5bd; font-size: 12px; }
+
+  /* ── EMPTY STATE ── */
+  .empty { padding: 30px; text-align: center; color: #adb5bd; font-size: 13px; }
+
+  /* ── REFRESH BTN ── */
+  .refresh-btn {
+    background: none; border: 1px solid #dee2e6; border-radius: 6px;
+    padding: 5px 12px; font-size: 12px; color: #6c757d;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .refresh-btn:hover { background: #f8f9fa; border-color: #adb5bd; }
+
+  .loading { color: #adb5bd; font-size: 12px; padding: 20px; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="status-dot" id="liveStatus"></span>
+    <div>
+      <div class="topbar-title">Lead Pipeline Dashboard</div>
+      <div class="topbar-subtitle">Live · Auto-refreshes every 15s</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <span class="last-updated" id="lastUpdated">Loading...</span>
+    <button class="refresh-btn" onclick="loadAll()">↻ Refresh</button>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- Progress bar -->
+  <div class="progress-section">
+    <div class="progress-header">
+      <span class="progress-label">Overall Progress</span>
+      <span class="progress-numbers" id="progressNumbers">Loading...</span>
+    </div>
+    <div class="progress-bar-track">
+      <div class="progress-bar-fill" id="progressBar" style="width:0%"></div>
+    </div>
+    <div class="progress-meta">
+      <span>Rate: <strong id="rateVal">—</strong></span>
+      <span>ETA: <strong id="etaVal">—</strong></span>
+      <span>Claude cost: <strong id="costVal">—</strong></span>
+      <span>Started: <strong id="startedVal">—</strong></span>
+    </div>
+  </div>
+
+  <!-- Stat cards -->
+  <div class="cards">
+    <div class="card blue">
+      <div class="card-label">Processed</div>
+      <div class="card-value" id="cardProcessed">—</div>
+      <div class="card-sub" id="cardTotal">of — total</div>
+    </div>
+    <div class="card green">
+      <div class="card-label">Owners Found</div>
+      <div class="card-value" id="cardOwners">—</div>
+      <div class="card-sub" id="cardOwnerPct">— %</div>
+    </div>
+    <div class="card green">
+      <div class="card-label">Emails Found</div>
+      <div class="card-value" id="cardEmails">—</div>
+      <div class="card-sub" id="cardEmailPct">— %</div>
+    </div>
+    <div class="card purple">
+      <div class="card-label">High Quality</div>
+      <div class="card-value" id="cardHigh">—</div>
+      <div class="card-sub" id="cardHighPct">— %</div>
+    </div>
+    <div class="card orange">
+      <div class="card-label">Skip Outreach</div>
+      <div class="card-value" id="cardSkip">—</div>
+      <div class="card-sub">flagged</div>
+    </div>
+    <div class="card red">
+      <div class="card-label">Errors</div>
+      <div class="card-value" id="cardErrors">—</div>
+      <div class="card-sub">pipeline errors</div>
+    </div>
+  </div>
+
+  <!-- Niche + Quality row -->
+  <div class="two-col">
+
+    <!-- Niche breakdown -->
+    <div class="panel">
+      <div class="panel-header">
+        Niche Breakdown
+        <span style="font-size:11px;font-weight:400;color:#adb5bd" id="nicheTotal"></span>
+      </div>
+      <div class="panel-body" id="nichePanel">
+        <div class="loading">Loading...</div>
+      </div>
+    </div>
+
+    <!-- Quality breakdown -->
+    <div class="panel">
+      <div class="panel-header">Data Quality</div>
+      <div class="panel-body" id="qualityPanel">
+        <div class="loading">Loading...</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Services + Pipeline status row -->
+  <div class="two-col">
+
+    <!-- Service health -->
+    <div class="panel">
+      <div class="panel-header">Service Health</div>
+      <div class="panel-body" id="servicePanel">
+        <div class="loading">Checking...</div>
+      </div>
+    </div>
+
+    <!-- Pipeline status breakdown -->
+    <div class="panel">
+      <div class="panel-header">Pipeline Status</div>
+      <div class="panel-body" id="pipelineStatusPanel">
+        <div class="loading">Loading...</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Live feed -->
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-header">
+      Live Feed — Recent Completions
+      <span style="font-size:11px;font-weight:400;color:#adb5bd">last 50 rows</span>
+    </div>
+    <div class="feed-header">
+      <span>Business</span>
+      <span>Niche</span>
+      <span>Owner</span>
+      <span>Email</span>
+      <span>Quality</span>
+      <span>Score</span>
+    </div>
+    <div class="feed-container" id="feedPanel">
+      <div class="loading">Loading...</div>
+    </div>
+  </div>
+
+  <!-- Errors -->
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-header">
+      Error Log
+      <span style="font-size:11px;font-weight:400;color:#adb5bd" id="errorCount"></span>
+    </div>
+    <div class="panel-body" id="errorPanel">
+      <div class="loading">Loading...</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// CONFIG — edit these
+// ══════════════════════════════════════════════════════
+const SUPABASE_URL = "https://tcqfhdevbmizeenqreoc.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjcWZoZGV2Ym1pemVlbnFyZW9jIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MDUzMjc4OSwiZXhwIjoyMDg2MTA4Nzg5fQ.544LfRLCALUyfdSqWMqeRe14C-ii5rskkHxxWfzOy5Q";
+const TOTAL_SCRAPER_ROWS = 17840; // approximate — update as scraper adds rows
+const REFRESH_INTERVAL   = 15000; // ms
+
+// ══════════════════════════════════════════════════════
+// SUPABASE FETCH HELPER
+// ══════════════════════════════════════════════════════
+async function sb(path, params = {}) {
+  const url = new URL(`${SUPABASE_URL}/rest/v1/${path}`);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  const res = await fetch(url, {
+    headers: {
+      "apikey": SUPABASE_KEY,
+      "Authorization": `Bearer ${SUPABASE_KEY}`,
+      "Prefer": "count=exact",
+    }
+  });
+  const data = await res.json();
+  const count = parseInt(res.headers.get("content-range")?.split("/")[1] || 0);
+  return { data, count };
+}
+
+async function sbCount(table, filter = "") {
+  const url = new URL(`${SUPABASE_URL}/rest/v1/${table}`);
+  url.searchParams.set("select", "id");
+  url.searchParams.set("limit", "1");
+  if (filter) url.searchParams.set(...filter.split("=").reduce((a, v, i) => i === 0 ? [v] : [...a, v], []));
+  const res = await fetch(url, {
+    headers: {
+      "apikey": SUPABASE_KEY,
+      "Authorization": `Bearer ${SUPABASE_KEY}`,
+      "Prefer": "count=exact",
+    }
+  });
+  return parseInt(res.headers.get("content-range")?.split("/")[1] || 0);
+}
+
+// ══════════════════════════════════════════════════════
+// NICHE COLORS
+// ══════════════════════════════════════════════════════
+const NICHE_COLORS = {
+  hvac:                "#4361ee",
+  plumbing:            "#7209b7",
+  roofers:             "#3a0ca3",
+  painters:            "#f72585",
+  movers:              "#4cc9f0",
+  concrete_contractor: "#560bad",
+  junk_removal:        "#480ca8",
+  unknown:             "#adb5bd",
+};
+
+// ══════════════════════════════════════════════════════
+// SERVICE HEALTH CHECK
+// ══════════════════════════════════════════════════════
+async function checkService(url, method = "GET", body = null) {
+  try {
+    const opts = { method, headers: { "Content-Type": "application/json" }, signal: AbortSignal.timeout(4000) };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(url, opts);
+    return res.status < 500 ? "up" : "down";
+  } catch {
+    return "down";
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// MAIN LOAD
+// ══════════════════════════════════════════════════════
+let _startTime = null;
+let _prevDone  = 0;
+let _prevTime  = Date.now();
+
+async function loadAll() {
+  try {
+    document.getElementById("liveStatus").className = "status-dot";
+
+    // Fetch all stats in parallel
+    const [
+      { data: recentRows, count: totalDone },
+      { data: ownerRows },
+      { data: emailRows },
+      { data: qualityRows },
+      { data: nicheRows },
+      { data: skipRows },
+      { data: pipelineStatusRows },
+      { data: errorRows },
+    ] = await Promise.all([
+      sb("processed_leads", { select: "company_name,niche,owner_name,best_email,data_quality,data_quality_score,pipeline_status,processed_at,email_source", order: "processed_at.desc", limit: 50 }),
+      sb("processed_leads", { select: "id", "owner_name": "not.is.null", limit: 1 }),
+      sb("processed_leads", { select: "id", "best_email": "not.is.null", limit: 1 }),
+      sb("processed_leads", { select: "data_quality" }),
+      sb("processed_leads", { select: "niche" }),
+      sb("processed_leads", { select: "id", "skip_outreach": "eq.true", limit: 1 }),
+      sb("processed_leads", { select: "pipeline_status" }),
+      sb("pipeline_errors", { select: "business_name,error_message,occurred_at", order: "occurred_at.desc", limit: 20 }),
+    ]);
+
+    // ── Progress ──────────────────────────────────────
+    const done = totalDone || 0;
+    const pct  = Math.min(100, Math.round((done / TOTAL_SCRAPER_ROWS) * 100));
+
+    if (!_startTime && done > 0) _startTime = Date.now() - (done * 30 * 1000); // rough estimate
+
+    // Rate calculation
+    const now     = Date.now();
+    const elapsed = (now - _prevTime) / 1000;
+    const rate    = elapsed > 5 ? ((done - _prevDone) / elapsed).toFixed(2) : "—";
+    _prevDone = done; _prevTime = now;
+
+    // ETA
+    let eta = "—";
+    if (rate > 0 && done < TOTAL_SCRAPER_ROWS) {
+      const secsLeft = (TOTAL_SCRAPER_ROWS - done) / rate;
+      if (secsLeft < 3600) eta = `${Math.round(secsLeft / 60)}m`;
+      else eta = `${Math.round(secsLeft / 3600)}h ${Math.round((secsLeft % 3600) / 60)}m`;
+    }
+
+    document.getElementById("progressBar").style.width = pct + "%";
+    document.getElementById("progressNumbers").textContent = `${done.toLocaleString()} / ${TOTAL_SCRAPER_ROWS.toLocaleString()} (${pct}%)`;
+    document.getElementById("rateVal").textContent = rate === "—" ? "—" : `${rate}/s`;
+    document.getElementById("etaVal").textContent  = eta;
+    document.getElementById("startedVal").textContent = _startTime ? new Date(_startTime).toLocaleTimeString() : "—";
+
+    // ── Stat cards ───────────────────────────────────
+    // Owners — count rows with non-null owner_name
+    const ownerCount = (ownerRows || []).filter ? ownerRows.filter(r => r.id).length : 0;
+    // Use count header properly — we need to count owners
+    // Instead use qualityRows to calculate
+    const allRows = qualityRows?.data || qualityRows || [];
+
+    // Get owner count from fetched rows
+    let ownerTotal = 0, emailTotal = 0, highTotal = 0, medTotal = 0, lowTotal = 0, skipTotal = 0;
+
+    // Fetch accurate counts
+    const [oCount, eCount, hCount, sCount] = await Promise.all([
+      fetchCount("processed_leads", "owner_name=not.is.null"),
+      fetchCount("processed_leads", "best_email=not.is.null"),
+      fetchCount("processed_leads", "data_quality=eq.high"),
+      fetchCount("processed_leads", "skip_outreach=eq.true"),
+    ]);
+
+    ownerTotal = oCount;
+    emailTotal = eCount;
+    highTotal  = hCount;
+    skipTotal  = sCount;
+
+    const ownerPct = done > 0 ? Math.round(ownerTotal / done * 100) : 0;
+    const emailPct = done > 0 ? Math.round(emailTotal / done * 100) : 0;
+    const highPct  = done > 0 ? Math.round(highTotal  / done * 100) : 0;
+
+    document.getElementById("cardProcessed").textContent = done.toLocaleString();
+    document.getElementById("cardTotal").textContent     = `of ${TOTAL_SCRAPER_ROWS.toLocaleString()} total`;
+    document.getElementById("cardOwners").textContent    = ownerTotal.toLocaleString();
+    document.getElementById("cardOwnerPct").textContent  = `${ownerPct}% of processed`;
+    document.getElementById("cardEmails").textContent    = emailTotal.toLocaleString();
+    document.getElementById("cardEmailPct").textContent  = `${emailPct}% of processed`;
+    document.getElementById("cardHigh").textContent      = highTotal.toLocaleString();
+    document.getElementById("cardHighPct").textContent   = `${highPct}% of processed`;
+    document.getElementById("cardSkip").textContent      = skipTotal.toLocaleString();
+
+    // Error count from pipeline_errors
+    const errCount = await fetchCount("pipeline_errors", "resolved=eq.false");
+    document.getElementById("cardErrors").textContent = errCount.toLocaleString();
+
+    // ── Niche breakdown ───────────────────────────────
+    const nicheCounts = {};
+    (nicheRows || []).forEach(r => {
+      const n = r.niche || "unknown";
+      nicheCounts[n] = (nicheCounts[n] || 0) + 1;
+    });
+    const nicheTotal = Object.values(nicheCounts).reduce((a,b) => a+b, 0);
+    const nicheSorted = Object.entries(nicheCounts).sort((a,b) => b[1]-a[1]);
+
+    document.getElementById("nicheTotal").textContent = `${nicheTotal.toLocaleString()} leads`;
+    document.getElementById("nichePanel").innerHTML = nicheSorted.map(([name, count]) => {
+      const pct = nicheTotal > 0 ? Math.round(count / nicheTotal * 100) : 0;
+      const color = NICHE_COLORS[name] || "#adb5bd";
+      return `<div class="niche-row">
+        <div class="niche-name">${name.replace(/_/g,' ')}</div>
+        <div class="niche-bar-track"><div class="niche-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+        <div class="niche-count">${count.toLocaleString()}</div>
+        <div class="niche-pct">${pct}%</div>
+      </div>`;
+    }).join("") || '<div class="empty">No data yet</div>';
+
+    // ── Quality breakdown ─────────────────────────────
+    const qCounts = { high: 0, medium: 0, low: 0 };
+    (qualityRows || []).forEach(r => {
+      const q = r.data_quality || "low";
+      if (qCounts[q] !== undefined) qCounts[q]++;
+    });
+    const qTotal = qCounts.high + qCounts.medium + qCounts.low;
+
+    document.getElementById("qualityPanel").innerHTML = ["high","medium","low"].map(q => {
+      const count = qCounts[q];
+      const pct   = qTotal > 0 ? Math.round(count / qTotal * 100) : 0;
+      return `<div class="quality-row">
+        <div class="quality-label ${q}">${q.charAt(0).toUpperCase()+q.slice(1)}</div>
+        <div class="quality-bar-track"><div class="quality-bar-fill ${q}" style="width:${pct}%"></div></div>
+        <div class="quality-count">${count.toLocaleString()}</div>
+        <div class="quality-pct">${pct}%</div>
+      </div>`;
+    }).join("");
+
+    // ── Pipeline status breakdown ──────────────────────
+    const statusCounts = {};
+    (pipelineStatusRows || []).forEach(r => {
+      const s = r.pipeline_status || "pending";
+      statusCounts[s] = (statusCounts[s] || 0) + 1;
+    });
+    const statusOrder = ["fully_done","pending","failed","skipped"];
+    const statusPillClass = { fully_done: "pill-done", pending: "pill-pending", failed: "pill-failed", skipped: "pill-skipped" };
+    const statusTotal = Object.values(statusCounts).reduce((a,b)=>a+b,0);
+
+    document.getElementById("pipelineStatusPanel").innerHTML = Object.entries(statusCounts)
+      .sort((a,b) => b[1]-a[1])
+      .map(([status, count]) => {
+        const pct = statusTotal > 0 ? Math.round(count/statusTotal*100) : 0;
+        const cls = statusPillClass[status] || "pill-pending";
+        return `<div class="status-row">
+          <span class="status-pill ${cls}">${status.replace(/_/g,' ')}</span>
+          <span class="status-count">${count.toLocaleString()}</span>
+          <span class="status-pct">${pct}%</span>
+        </div>`;
+      }).join("") || '<div class="empty">No data yet</div>';
+
+    // ── Service health ────────────────────────────────
+    const [reaStatus, srxStatus, sbStatus] = await Promise.all([
+      checkService("http://localhost:8080/v0/check_email", "POST", { to_email: "ping@example.com" }),
+      checkService("http://localhost:8888/search?q=test&format=json"),
+      checkService(`${SUPABASE_URL}/rest/v1/processed_leads?select=id&limit=1`, "GET"),
+    ]);
+
+    const services = [
+      { name: "Reacher (localhost:8080)", status: reaStatus, desc: "Email verification" },
+      { name: "SearXNG (localhost:8888)", status: srxStatus, desc: "Owner search" },
+      { name: "Supabase",                 status: sbStatus,  desc: "Database" },
+    ];
+
+    document.getElementById("servicePanel").innerHTML = services.map(s => `
+      <div class="service-row">
+        <div class="service-name">
+          <span class="status-dot ${s.status === 'up' ? '' : 'offline'}" style="width:8px;height:8px;animation:${s.status==='up'?'pulse 2s infinite':'none'}"></span>
+          <div>
+            <div>${s.name}</div>
+            <div style="font-size:10px;color:#adb5bd;">${s.desc}</div>
+          </div>
+        </div>
+        <span class="service-badge ${s.status}">${s.status}</span>
+      </div>
+    `).join("");
+
+    // ── Live feed ─────────────────────────────────────
+    document.getElementById("feedPanel").innerHTML = (recentRows || []).map((r, i) => {
+      const name    = r.company_name || "—";
+      const niche   = (r.niche || "—").replace(/_/g,' ');
+      const owner   = r.owner_name || null;
+      const email   = r.best_email || null;
+      const quality = r.data_quality || "low";
+      const score   = r.data_quality_score !== null ? `${r.data_quality_score}/6` : "—";
+      return `<div class="feed-row">
+        <div class="feed-name" title="${name}">${i === 0 ? '▶ ' : ''}${name}</div>
+        <div class="feed-niche">${niche}</div>
+        <div class="feed-owner ${owner ? 'found' : 'none'}" title="${owner||''}">${owner || '—'}</div>
+        <div class="feed-email" title="${email||''}">${email || '—'}</div>
+        <div class="feed-quality ${quality}">${quality}</div>
+        <div class="feed-score">${score}</div>
+      </div>`;
+    }).join("") || '<div class="empty">No processed leads yet</div>';
+
+    // ── Error log ─────────────────────────────────────
+    const errors = errorRows || [];
+    document.getElementById("errorCount").textContent = `${errors.length} recent`;
+    document.getElementById("errorPanel").innerHTML = errors.length === 0
+      ? '<div class="no-errors">✓ No errors</div>'
+      : errors.map(e => `
+        <div class="error-row">
+          <div class="error-business">${e.business_name || 'Unknown business'}</div>
+          <div class="error-msg">${(e.error_message || '').substring(0, 120)}</div>
+          <div class="error-time">${e.occurred_at ? new Date(e.occurred_at).toLocaleString() : ''}</div>
+        </div>`).join("");
+
+    // ── Cost estimate (rough) ─────────────────────────
+    const costEst = (done * 0.0022).toFixed(2);
+    document.getElementById("costVal").textContent = `$${costEst}`;
+
+    // ── Timestamp ─────────────────────────────────────
+    document.getElementById("lastUpdated").textContent = `Updated ${new Date().toLocaleTimeString()}`;
+    document.getElementById("liveStatus").className = "status-dot";
+
+  } catch (err) {
+    console.error("Dashboard error:", err);
+    document.getElementById("liveStatus").className = "status-dot offline";
+    document.getElementById("lastUpdated").textContent = `Error: ${err.message}`;
+  }
+}
+
+// Count helper using HEAD + content-range
+async function fetchCount(table, filter = "") {
+  try {
+    const url = new URL(`${SUPABASE_URL}/rest/v1/${table}`);
+    url.searchParams.set("select", "id");
+    url.searchParams.set("limit", "1");
+    if (filter) {
+      const [col, val] = filter.split("=");
+      url.searchParams.set(col, val);
+    }
+    const res = await fetch(url, {
+      headers: {
+        "apikey": SUPABASE_KEY,
+        "Authorization": `Bearer ${SUPABASE_KEY}`,
+        "Prefer": "count=exact",
+      }
+    });
+    return parseInt(res.headers.get("content-range")?.split("/")[1] || 0);
+  } catch {
+    return 0;
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// BOOT
+// ══════════════════════════════════════════════════════
+loadAll();
+setInterval(loadAll, REFRESH_INTERVAL);
+</script>
+</body>
+</html>
