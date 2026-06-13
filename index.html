@@ -411,7 +411,11 @@ const REFRESH_INTERVAL   = 15000; // ms
 // ══════════════════════════════════════════════════════
 async function sb(path, params = {}) {
   const url = new URL(`${SUPABASE_URL}/rest/v1/${path}`);
-  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  // Handle special params
+  const { order, limit, ...rest } = params;
+  if (order) url.searchParams.set("order", order);
+  if (limit) url.searchParams.set("limit", String(limit));
+  Object.entries(rest).forEach(([k, v]) => url.searchParams.set(k, v));
   const res = await fetch(url, {
     headers: {
       "apikey": SUPABASE_KEY,
@@ -456,13 +460,25 @@ const NICHE_COLORS = {
 // ══════════════════════════════════════════════════════
 // SERVICE HEALTH CHECK
 // ══════════════════════════════════════════════════════
-async function checkService(url, method = "GET", body = null) {
+async function checkService(url, method = "GET", body = null, noCors = false) {
   try {
-    const opts = { method, headers: { "Content-Type": "application/json" }, signal: AbortSignal.timeout(4000) };
+    const opts = {
+      method,
+      signal: AbortSignal.timeout(5000),
+      mode: noCors ? "no-cors" : "cors",
+    };
+    if (!noCors) opts.headers = { "Content-Type": "application/json" };
     if (body) opts.body = JSON.stringify(body);
     const res = await fetch(url, opts);
+    // no-cors always returns opaque response (status 0) — treat as up if no error thrown
+    if (noCors) return "up";
     return res.status < 500 ? "up" : "down";
-  } catch {
+  } catch (e) {
+    // Connection refused = definitely down. Timeout or CORS = might be up
+    if (e.name === "TypeError" && e.message.includes("fetch")) return "down";
+    if (e.name === "AbortError") return "down";
+    // CORS error means server exists but blocks cross-origin — treat as up
+    if (e.message && (e.message.includes("CORS") || e.message.includes("NetworkError"))) return "up";
     return "down";
   }
 }
@@ -489,13 +505,13 @@ async function loadAll() {
       { data: pipelineStatusRows },
       { data: errorRows },
     ] = await Promise.all([
-      sb("processed_leads", { select: "company_name,niche,owner_name,best_email,data_quality,data_quality_score,pipeline_status,processed_at,email_source", order: "processed_at.desc", limit: 50 }),
+      sb("processed_leads", { select: "company_name,niche,owner_name,best_email,data_quality,data_quality_score,pipeline_status,processed_at,email_source", order: "processed_at.desc.nullslast", limit: 50 }),
       sb("processed_leads", { select: "id", "owner_name": "not.is.null", limit: 1 }),
       sb("processed_leads", { select: "id", "best_email": "not.is.null", limit: 1 }),
-      sb("processed_leads", { select: "data_quality" }),
-      sb("processed_leads", { select: "niche" }),
+      sb("processed_leads", { select: "data_quality", limit: 10000 }),
+      sb("processed_leads", { select: "niche", limit: 10000 }),
       sb("processed_leads", { select: "id", "skip_outreach": "eq.true", limit: 1 }),
-      sb("processed_leads", { select: "pipeline_status" }),
+      sb("processed_leads", { select: "pipeline_status", limit: 10000 }),
       sb("pipeline_errors", { select: "business_name,error_message,occurred_at", order: "occurred_at.desc", limit: 20 }),
     ]);
 
@@ -630,8 +646,8 @@ async function loadAll() {
 
     // ── Service health ────────────────────────────────
     const [reaStatus, srxStatus, sbStatus] = await Promise.all([
-      checkService("http://localhost:8080/v0/check_email", "POST", { to_email: "ping@example.com" }),
-      checkService("http://localhost:8888/search?q=test&format=json"),
+      checkService("http://localhost:8080/v0/check_email", "POST", null, true),
+      checkService("http://localhost:8888/search?q=test&format=json", "GET", null, true),
       checkService(`${SUPABASE_URL}/rest/v1/processed_leads?select=id&limit=1`, "GET"),
     ]);
 
